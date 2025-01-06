@@ -1,4 +1,4 @@
-name: Setup Ubuntu Desktop with VNC and SSH
+name: Setup Minimal Ubuntu Desktop with VNC and SSH
 
 on:
   workflow_dispatch:
@@ -8,10 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install dependencies
+    - name: Install minimal desktop and VNC
       run: |
         sudo apt update && sudo apt upgrade -y
-        sudo apt install -y xfce4 xfce4-goodies tigervnc-standalone-server tigervnc-common xterm openssh-server curl jq
+        sudo apt install -y openbox x11-utils xinit tigervnc-standalone-server tigervnc-common xterm
 
     - name: Configure VNC server
       run: |
@@ -19,12 +19,11 @@ jobs:
         echo "password" | vncpasswd -f > ~/.vnc/passwd
         chmod 600 ~/.vnc/passwd
 
-        # Minimal xstartup file
         cat <<EOF > ~/.vnc/xstartup
         #!/bin/bash
         unset SESSION_MANAGER
         unset DBUS_SESSION_BUS_ADDRESS
-        exec startxfce4 &
+        exec openbox-session &
         EOF
         chmod +x ~/.vnc/xstartup
 
@@ -32,12 +31,12 @@ jobs:
       run: |
         vncserver -geometry 1280x800 :1 || echo "VNC failed to start"
 
-    - name: Configure SSH server
+    - name: Install and start SSH server
       run: |
-        # Enable SSH service
+        sudo apt install -y openssh-server
         sudo systemctl enable ssh
         sudo systemctl start ssh
-        echo "SSH is running. You can connect to it using the public IP and default SSH port (22)."
+        echo "SSH is running. You can connect using the public IP and default port (22)."
 
     - name: Install and start ngrok
       run: |
@@ -45,16 +44,22 @@ jobs:
         unzip ngrok-stable-linux-amd64.zip
         sudo mv ngrok /usr/local/bin/
 
-        # Start ngrok for both VNC and SSH
+        # Start ngrok for VNC (5901) and SSH (22)
         nohup ngrok tcp 5901 > /dev/null 2>&1 &
         nohup ngrok tcp 22 > /dev/null 2>&1 &
         
         # Wait for ngrok to initialize
-        sleep 5
-        
-        # Fetch ngrok public URLs
+        sleep 10
+
+        # Fetch and display ngrok public URLs
         echo "Fetching ngrok public URLs:"
-        curl -s localhost:4040/api/tunnels | jq -r '.tunnels[] | "\(.name): \(.public_url)"'
+        if curl -s localhost:4040/api/tunnels | jq -r '.tunnels[] | "\(.name): \(.public_url)"'; then
+          echo "ngrok URLs fetched successfully."
+        else
+          echo "Failed to fetch ngrok URLs. Retrying..."
+          sleep 5
+          curl -s localhost:4040/api/tunnels | jq -r '.tunnels[] | "\(.name): \(.public_url)"'
+        fi
 
     - name: Keep workflow running for debugging
       run: |
