@@ -28,6 +28,7 @@ jobs:
         if [ ! -f ~/.ssh/id_rsa ]; then
           ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
         fi
+        echo "runner:1234567899899" | sudo chpasswd
         # print key
         echo "SSH Public Key:"
         cat ~/.ssh/id_rsa.pub
