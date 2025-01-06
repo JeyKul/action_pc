@@ -1,17 +1,17 @@
-name: Setup Ubuntu Desktop with VNC
+name: Setup Ubuntu Desktop with VNC and SSH
 
 on:
   workflow_dispatch:
 
 jobs:
-  setup-vnc-desktop:
+  setup-vnc-ssh:
     runs-on: ubuntu-latest
 
     steps:
     - name: Install dependencies
       run: |
         sudo apt update && sudo apt upgrade -y
-        sudo apt install -y xfce4 xfce4-goodies tigervnc-standalone-server tigervnc-common xterm
+        sudo apt install -y xfce4 xfce4-goodies tigervnc-standalone-server tigervnc-common xterm openssh-server curl jq
 
     - name: Configure VNC server
       run: |
@@ -30,13 +30,33 @@ jobs:
 
     - name: Start VNC server
       run: |
-        vncserver -geometry 1280x800 :1
+        vncserver -geometry 1280x800 :1 || echo "VNC failed to start"
+
+    - name: Configure SSH server
+      run: |
+        # Enable SSH service
+        sudo systemctl enable ssh
+        sudo systemctl start ssh
+        echo "SSH is running. You can connect to it using the public IP and default SSH port (22)."
 
     - name: Install and start ngrok
       run: |
         wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip
         unzip ngrok-stable-linux-amd64.zip
         sudo mv ngrok /usr/local/bin/
+
+        # Start ngrok for both VNC and SSH
         nohup ngrok tcp 5901 > /dev/null 2>&1 &
+        nohup ngrok tcp 22 > /dev/null 2>&1 &
+        
+        # Wait for ngrok to initialize
         sleep 5
-        curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+        
+        # Fetch ngrok public URLs
+        echo "Fetching ngrok public URLs:"
+        curl -s localhost:4040/api/tunnels | jq -r '.tunnels[] | "\(.name): \(.public_url)"'
+
+    - name: Keep workflow running for debugging
+      run: |
+        echo "Setup complete. Keeping the environment active for debugging."
+        while true; do sleep 60; done
