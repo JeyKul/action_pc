@@ -62,6 +62,18 @@ jobs:
         sudo systemctl start ssh
         echo "SSH is running. You can connect using the private IP address provided by the VPN."
 
+    - name: Generate SSH key (if not already present)
+      run: |
+        if [ ! -f ~/.ssh/id_rsa ]; then
+          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+        fi
+
+    - name: Print SSH public key
+      run: |
+        echo "SSH Public Key:"
+        cat ~/.ssh/id_rsa.pub
+
+
     - name: Debugging Loop
       run: |
         echo "Setup complete. Keeping the environment active for debugging."
