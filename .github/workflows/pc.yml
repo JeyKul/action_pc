@@ -1,13 +1,36 @@
-name: Setup Minimal Ubuntu Desktop with VNC and SSH
+name: Setup Minimal Ubuntu Desktop with VPN, VNC, and SSH
 
 on:
   workflow_dispatch:
+    inputs:
+      vpn_profile:
+        description: "Base64-encoded OpenVPN profile (.ovpn file)"
+        required: true
 
 jobs:
-  setup-vnc-ssh:
+  setup-vpn-vnc-ssh:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Decode and set up VPN profile
+      run: |
+        # Decode the provided VPN profile and save it
+        echo "${{ inputs.vpn_profile }}" | base64 -d > vpn.ovpn
+        chmod 600 vpn.ovpn
+
+        # Install OpenVPN and start the VPN connection
+        sudo apt update && sudo apt install -y openvpn
+        sudo openvpn --config vpn.ovpn --daemon
+
+        # Verify VPN connectivity
+        sleep 10
+        if curl -s https://api.ipify.org; then
+          echo "VPN connection established. Public IP updated."
+        else
+          echo "VPN connection failed. Exiting."
+          exit 1
+        fi
+
     - name: Install minimal desktop and VNC
       run: |
         sudo apt update && sudo apt upgrade -y
@@ -36,32 +59,9 @@ jobs:
         sudo apt install -y openssh-server
         sudo systemctl enable ssh
         sudo systemctl start ssh
-        echo "SSH is running. You can connect using the public IP and default port (22)."
+        echo "SSH is running. You can connect using the private IP address provided by the VPN."
 
-    - name: Install and start ngrok
-      run: |
-        wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip
-        unzip ngrok-stable-linux-amd64.zip
-        sudo mv ngrok /usr/local/bin/
-
-        # Start ngrok for VNC (5901) and SSH (22)
-        nohup ngrok tcp 5901 > /dev/null 2>&1 &
-        nohup ngrok tcp 22 > /dev/null 2>&1 &
-        
-        # Wait for ngrok to initialize
-        sleep 10
-
-        # Fetch and display ngrok public URLs
-        echo "Fetching ngrok public URLs:"
-        if curl -s localhost:4040/api/tunnels | jq -r '.tunnels[] | "\(.name): \(.public_url)"'; then
-          echo "ngrok URLs fetched successfully."
-        else
-          echo "Failed to fetch ngrok URLs. Retrying..."
-          sleep 5
-          curl -s localhost:4040/api/tunnels | jq -r '.tunnels[] | "\(.name): \(.public_url)"'
-        fi
-
-    - name: Keep workflow running for debugging
+    - name: Debugging Loop
       run: |
         echo "Setup complete. Keeping the environment active for debugging."
         while true; do sleep 60; done
