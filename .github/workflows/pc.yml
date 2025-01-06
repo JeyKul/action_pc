@@ -46,7 +46,7 @@ jobs:
 
     - name: Install minimal desktop and VNC
       run: |
-        sudo apt update && sudo apt upgrade -y
+        sudo apt update
         sudo apt install -y openbox x11-utils xinit tigervnc-standalone-server tigervnc-common xterm
 
     - name: Configure VNC server
