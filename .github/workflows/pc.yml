@@ -18,9 +18,20 @@ jobs:
         echo "${{ inputs.vpn_profile }}" | base64 -d > vpn.ovpn
         chmod 600 vpn.ovpn
 
-        # Install OpenVPN and start the VPN connection
+        # Install OpenVPN, ssh server and start the VPN connection
         whoami
-        sudo apt update && sudo apt install -y openvpn
+        sudo apt update && sudo apt install -y openvpn openssh-server
+        # start ssh
+        sudo systemctl enable ssh
+        sudo systemctl start ssh
+        # generate key
+        if [ ! -f ~/.ssh/id_rsa ]; then
+          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+        fi
+        # print key
+        echo "SSH Public Key:"
+        cat ~/.ssh/id_rsa.pub
+
         sudo openvpn --config vpn.ovpn --daemon
 
         # Verify VPN connectivity
@@ -54,25 +65,6 @@ jobs:
     - name: Start VNC server
       run: |
         vncserver -geometry 1280x800 :1 || echo "VNC failed to start"
-
-    - name: Install and start SSH server
-      run: |
-        sudo apt install -y openssh-server
-        sudo systemctl enable ssh
-        sudo systemctl start ssh
-        echo "SSH is running. You can connect using the private IP address provided by the VPN."
-
-    - name: Generate SSH key (if not already present)
-      run: |
-        if [ ! -f ~/.ssh/id_rsa ]; then
-          ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-        fi
-
-    - name: Print SSH public key
-      run: |
-        echo "SSH Public Key:"
-        cat ~/.ssh/id_rsa.pub
-
 
     - name: Debugging Loop
       run: |
